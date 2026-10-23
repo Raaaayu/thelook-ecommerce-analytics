@@ -4,7 +4,7 @@ name: Daily data freshness log
 on:
   schedule:
     - cron: "17 5 * * *"   # codziennie o 05:17 UTC (07:17 w Warszawie latem, 06:17 zimą)
-    - cron: "47 16 * * *"   # 16:47 UTC (18:47 w Warszawie latem) – drugie uruchomienie jako zabezpieczenie
+    - cron: "10 10 * * *"   # 10:10 UTC (12:10 w Warszawie latem) – drugie uruchomienie jako zabezpieczenie
   workflow_dispatch:         # przycisk "Run workflow" do ręcznego uruchomienia
 
 jobs:
