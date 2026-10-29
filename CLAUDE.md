@@ -1,0 +1,196 @@
+# Projekt: TheLook E-commerce Analytics
+
+Projekt portfolio pod ofertę **Data Analyst w Allegro (zespół Advertising Analytics, Allegro Ads)**.
+Cel: pokazać biznesowe podejście do danych — od analizy ruchu i zachowań kupujących do konkretnych rekomendacji z oszacowanym wpływem.
+
+## Jak ze mną pracować (tryb nauki)
+
+- Uczę się w trakcie projektu. Prowadź mnie **krok po kroku**, jeden etap naraz.
+- Przy każdym kroku wyjaśnij najpierw **dlaczego** to robimy, potem **jak**.
+- Daj mi samemu uruchamiać zapytania i kod; nie rób wszystkiego za mnie bez pytania.
+- Nowe pojęcia (np. funkcje okna, CTE, kohorty) tłumacz krótko na przykładzie z tych danych.
+- Odpowiadaj po polsku. Kod, nazwy plików i kolumn po angielsku.
+
+## Wymagania z oferty, które projekt ma pokazać
+
+- Analiza ruchu, zachowań kupujących i efektywności → rekomendacje biznesowe
+- Stack: GCP / BigQuery, SQL, Python, Airflow, Looker Studio, Git
+- Mile widziane: Agentic AI / ML do automatyzacji analityki
+
+## Dane
+
+- `bigquery-public-data.thelook_ecommerce` — syntetyczny sklep odzieżowy.
+- Tabele: `users`, `orders`, `order_items`, `products`, `events`, `inventory_items`, `distribution_centers`.
+- Źródło ruchu: `users.traffic_source` oraz `events.traffic_source`.
+- **Brak kosztów reklam** — ROAS/CPA liczymy tylko na jawnie opisanych założeniach (np. przyjęty CPC per kanał) w symulatorze.
+- Dostęp: BigQuery sandbox (bez karty). Zawsze sprawdzaj szacowany rozmiar zapytania, unikaj `SELECT *`.
+
+## Pytanie biznesowe
+
+> Z których źródeł ruchu przychodzą najbardziej wartościowi klienci, gdzie lejek traci kupujących i w co warto inwestować?
+
+## Mapa projektu
+
+0. Setup i poznanie danych ✅
+1. **Pytania biznesowe i definicje KPI** ← obecny etap (CVR, AOV, LTV, retencja, zwroty; ROAS/CPA tylko na założeniach)
+2. Analizy SQL: lejek (events), źródła ruchu, LTV wg kanału pozyskania, kohorty, zwroty
+3. Python: połączenie z BigQuery przez API (`google-cloud-bigquery`), analiza w notebooku
+4. Pipeline: automatyczne odświeżanie (Airflow lub GitHub Actions), warstwy raw → staging → marts
+5. Aplikacja w Streamlit, opublikowana z linkiem (+ dashboard w Looker Studio)
+6. Memo dla stakeholdera (3 rekomendacje z oszacowanym wpływem, założenia, ograniczenia) + agent AI (pytanie po polsku → SQL → wynik + rekomendacja; tylko SELECT, limit kosztu, pokazywany SQL)
+
+## Środowisko
+
+- Projekt GCP: `thelook-analytics-512312` (BigQuery sandbox, konsola w języku polskim)
+- Zapytania wykonywane w BigQuery Studio na pełnych nazwach tabel `bigquery-public-data.thelook_ecommerce.*`
+- **Python ✅ (działa od 2026-10-22):** SQL uruchamiany z Pythona przez `google-cloud-bigquery`, wyniki do pandas
+  - Wirtualne środowisko `.venv` (Windows: `.venv\Scripts\activate`), biblioteki w `requirements.txt`
+  - Logowanie: Google Cloud CLI + `gcloud auth application-default login` (bez kluczy w kodzie); domyślny projekt ustawiony przez `gcloud config set project`
+  - Po instalacji gcloud trzeba było zrestartować VS Code, żeby terminal widział komendę
+  - Skrypty w formacie komórek `# %%` (rozszerzenia Python + Jupyter w VS Code), uruchamiane komórka po komórce
+- Konwencje w kodzie Pythona:
+  - funkcja `run_query()`: najpierw dry run (szacowany koszt w MB), potem wykonanie z `maximum_bytes_billed` (bezpiecznik 1 GB)
+  - parametry zapytań (`@cutoff` + `ScalarQueryParameter`) zamiast wklejania wartości do SQL f-stringiem
+  - BigQuery robi ciężkie agregacje, pandas dokańcza drobne obliczenia na małym wyniku
+
+## Etap 0 — zakończony ✅
+
+Zrobione:
+- [x] Projekt GCP i BigQuery sandbox
+- [x] Przejrzenie schematów i podglądu tabel
+- [x] Pierwsze zapytania: liczba wierszy, statusy zamówień i zakres dat, rozkład `traffic_source`
+- [ ] Repo GitHub `thelook-ecommerce-analytics` z README zawierającym pytanie biznesowe (do zrobienia)
+
+Skala danych (stan na 2026-10-21): 100 000 users, 125 470 orders, 181 995 order_items, 29 120 products, 2 428 223 events.
+Średnio ok. 1,25 zamówienia na użytkownika i ok. 1,45 produktu na zamówienie.
+
+Wnioski:
+- **Statusy zamówień:** Shipped ~30%, Complete ~25%, Processing ~20%, Cancelled ~15%, Returned ~10%.
+  Przyjęta definicja: **przychód = Complete + Shipped**. Cancelled i Returned wyłączone z przychodu netto; anulowania i zwroty to osobne KPI.
+  15% anulowań i 10% zwrotów to wysoki poziom — potencjalny temat rekomendacji w memo.
+- **Okres danych:** od 2019-01 do bieżącego dnia — zbiór jest dopisywany codziennie.
+  Dlatego stosujemy **datę odcięcia `2026-10-01`** (tylko pełne miesiące, odtwarzalne wyniki).
+- **Ograniczenia danych (syntetyczne):** zamówienia w statusie Processing istnieją już od 2019 r., buyer rate ~51% jest nierealnie wysoki jak na e-commerce.
+- **Źródła ruchu:** Search 69,9%, Organic 15,0%, Facebook 6,1%, Email 5,0%, Display 4,0% użytkowników — silna koncentracja na jednym kanale (ryzyko biznesowe).
+  `users.traffic_source` = kanał pozyskania (pierwszy kontakt); `events.traffic_source` = źródło każdej sesji. Rozróżniamy te dwa pojęcia.
+
+## Etap 1 — w toku
+
+Definicje KPI (do zapisania w `docs/kpi.md`):
+- Przychód = suma `order_items.sale_price` dla statusów Complete i Shipped
+- Buyer rate = % użytkowników z ≥1 zamówieniem liczonym do przychodu
+- AOV = przychód / liczba zamówień
+- Revenue per user = przychód / liczba użytkowników pozyskanych z kanału
+- Cancel rate / Return rate = % zamówień anulowanych / zwróconych
+- Data odcięcia: `2026-10-01`
+
+Wartość klienta wg kanału pozyskania (dane do 2026-10-01):
+
+| Kanał | Users | Buyers | Buyer rate | Orders | Revenue | AOV | Revenue/user |
+|---|---|---|---|---|---|---|---|
+| Search | 67 656 | 34 781 | 51,4% | 44 879 | 3 874 649 | 86,34 | 57,27 |
+| Organic | 14 499 | 7 440 | 51,3% | 9 659 | 826 793 | 85,60 | 57,02 |
+| Facebook | 5 934 | 3 081 | 51,9% | 4 011 | 351 927 | 87,74 | 59,31 |
+| Email | 4 888 | 2 542 | 52,0% | 3 294 | 283 860 | 86,17 | 58,07 |
+| Display | 3 886 | 1 998 | 51,4% | 2 624 | 234 312 | 89,30 | 60,30 |
+
+Wnioski:
+- Kanały są **prawie identyczne**: rozrzut buyer rate 0,7 pp, AOV ok. 4%, revenue per user ok. 6%.
+- Największy kanał (Search) nie ma najwyższej wartości klienta; najwyżej Display, ale różnice mogą być szumem.
+- Wniosek biznesowy: jeśli wartość klienta nie różni się między kanałami, o alokacji budżetu decyduje **koszt pozyskania (CPA)**, nie jakość ruchu.
+- Kanał jest w danych syntetycznych prawdopodobnie przypisywany losowo, więc historię biznesową budujemy na wymiarach, które się różnią.
+
+Przedziały ufności 95% dla revenue per user (skrypt `01_channel_value.py`, uruchomiony 2026-10-22):
+
+| Kanał | Users | Revenue/user | 95% CI |
+|---|---|---|---|
+| Display | 3 898 | 58,24 | 55,04–61,45 |
+| Search | 68 082 | 57,74 | 56,97–58,51 |
+| Facebook | 5 750 | 56,65 | 54,16–59,15 |
+| Email | 4 793 | 56,55 | 53,72–59,37 |
+| Organic | 14 202 | 56,45 | 54,82–58,08 |
+
+- **Wszystkie przedziały zachodzą na siebie → brak dowodu na różnicę wartości klienta między kanałami.** Potwierdza wniosek: budżet optymalizujemy po CPA.
+- Szerokość przedziału zależy od liczebności: Search ±0,8 (68 tys. users), Display ±3,2 (3,9 tys.). Wysoka średnia Display to najpewniej efekt małej próby.
+- Nakładanie się CI to test ostrożny; możliwe rozszerzenie: test t Welcha dla par kanałów.
+
+**Odkrycie: historia danych zmienia się z dnia na dzień.** Przy tej samej dacie odcięcia (`2026-10-01`) liczba użytkowników Search wzrosła z 67 656 (2026-10-21) do 68 082 (2026-10-22), a revenue per user Display spadł z 60,30 do 58,24.
+Zbiór nie jest tylko dopisywany — generator najpewniej dodaje rekordy z datami wstecz lub zmienia statusy starych zamówień.
+Wniosek: **data odcięcia nie wystarcza do odtwarzalności → potrzebny snapshot** (zamrożona kopia tabel we własnym zbiorze BigQuery). Liczby w tabelach powyżej pochodzą z różnych dni i nie są w pełni porównywalne.
+Uwaga: w trybie sandbox tabele we własnych zbiorach domyślnie wygasają po 60 dniach — snapshot musi dać się odtworzyć skryptem.
+
+Poznane techniki SQL: funkcja okna `SUM(COUNT(*)) OVER ()`, CTE (`WITH`), `LEFT JOIN` zachowujący użytkowników bez zakupów, `COUNT(DISTINCT ...)`.
+
+## Zmiana kierunku (2026-10-22)
+
+Projekt skupia się teraz na **EDA**, a potem na **dashboardach pokazujących, że dane są pobierane na bieżąco**.
+Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na żywo”. W EDA zawsze zapisujemy, na jaki moment są dane (`checked_at`, `MAX(created_at)`).
+
+### Część A – EDA
+
+| Krok | Zakres | Pytanie biznesowe | Plik |
+|---|---|---|---|
+| A1 ✅ | Jakość danych: braki, duplikaty, zakresy dat, świeżość | Czy możemy ufać danym? | `02_eda_data_quality.ipynb` |
+| A2 | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | ← obecny krok |
+| A3 | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | |
+| A4 | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | |
+| A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | |
+| A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | |
+
+Każdy krok kończy się 2–3 wnioskami, które trafią na dashboard.
+
+Analizy EDA są teraz w notatnikach `.ipynb` (zamiast skryptów `# %%`); dane wczytuje `read_bq()` z `bq_utils.py` (jak `pd.read_csv` z `usecols`/`dtype`, opcjonalnie `sample_pct`). Kolumn z danymi osobowymi nie pobieramy. `events` wczytujemy jako 10% próbkę (`TABLESAMPLE`) — wyniki z niej to szacunki.
+
+#### A1 – wnioski (2026-10-29)
+
+1. **Braki w datach są strukturalne, nie są błędami.** Puste `shipped_at` / `delivered_at` / `returned_at` odpowiadają dokładnie statusom (np. 90% braków `returned_at` = ~10% zwrotów). `inventory.sold_at` puste w 63% = towar niesprzedany (temat do A3).
+   46,5% zdarzeń w `events` nie ma `user_id` (sesje niezalogowanych) → **lejek liczymy po `session_id`**.
+2. **`order_items.created_at` jest niewiarygodne:** 30,4% wysłanych pozycji ma `shipped_at < created_at` (w `orders`: 0%), a `order_items`, `events` i `inventory` mają rekordy do 3 dni w przyszłości.
+   → **Reguła: analizy w czasie opieramy na `orders.created_at`** (pozycje łączymy z zamówieniem po `order_id`).
+3. **Dane czyste, ale wyraźnie syntetyczne:** brak duplikatów kluczy, cen ≤ 0 i sprzedaży poniżej kosztu; statusy idealnie spójne z datami; marża ~51% zarówno Men, jak i Women (koszt prawdopodobnie jako stały % ceny — sprawdzić w A3).
+   Historia się zmienia: 124 452 zamówienia (2026-10-29) vs 125 470 (2026-10-21), mimo braku filtra.
+
+Pułapka pandas: `(newest - now).dt.days` zaokrągla w dół, więc różnica −8 h daje `-1`. Porównanie z `NaT` zawsze daje False → odsetki liczymy wśród wierszy z niepustą datą.
+
+### Część B – Dashboard na żywych danych
+
+- **Looker Studio** podłączone bezpośrednio do BigQuery (darmowe, wymienione w ofercie, link do CV).
+- W BigQuery **widoki (views)** — liczą się na aktualnych danych przy każdym otwarciu dashboardu.
+- Kafelek **„Dane na: …”** z `MAX(created_at)` jako dowód aktualności.
+- Opcjonalnie później: aplikacja Streamlit robiąca to samo z Pythona.
+
+### Struktura kodu
+
+- `bq_utils.py` — wspólne ustawienia (`PROJECT_ID`, `DATASET`, `MAX_BYTES`), `client` i `run_query()`; każdy skrypt importuje: `from bq_utils import client, run_query, DATASET`.
+- `client.get_table()` — darmowe metadane tabeli (liczba wierszy, rozmiar, schemat).
+- f-string dopuszczalny dla nazw tabel/kolumn z metadanych; parametry `@...` tylko dla wartości.
+
+### Automatyczny monitoring świeżości danych
+
+- `03_freshness_log.py` — sprawdza `COUNT(*)`, `MIN/MAX(created_at)` w tabelach źródłowych i dopisuje wynik (`checked_at`, `lag_minutes`) do `thelook-analytics-512312.monitoring.data_freshness`.
+  - Zbiór `monitoring` w lokalizacji **US** (jak dane publiczne — umożliwia łączenie w jednym zapytaniu).
+  - Zapis przez load job `load_table_from_dataframe` z `WRITE_APPEND` (dopisuje, nie nadpisuje).
+- Harmonogram: **GitHub Actions** (`.github/workflows/freshness.yml`), codziennie 05:17 UTC + ręczne uruchomienie (`workflow_dispatch`). Pełni rolę lekkiego orkiestratora (odpowiednik Airflow z oferty).
+- Logowanie w GitHub Actions: konto usługi GCP z rolami BigQuery Job User + BigQuery Data Editor; klucz JSON tylko jako sekret `GCP_SA_KEY` — **nigdy w repozytorium**.
+- Uwaga sandbox: tabele we własnych zbiorach wygasają domyślnie po 60 dniach.
+
+Status (2026-10-22): **działa ✅** — repo na GitHubie, konto usługi `github-freshness`, sekret `GCP_SA_KEY`, pierwsze ręczne uruchomienie zakończone sukcesem (ok. 47 s). Od teraz uruchamia się codziennie o 05:17 UTC.
+- Wersja Pythona w workflow = wersja lokalna (3.15; w razie braku na runnerze → 3.14).
+- Akcje podbite do wersji na Node 24: `actions/checkout@v6`, `actions/setup-python@v6`, `google-github-actions/auth@v3` (ostrzeżenie o wycofaniu Node 20).
+- Klucz JSON wykluczony w `.gitignore` wzorcem `thelook-analytics-*.json`.
+
+Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje klucz z sekretu do pliku tymczasowego i ustawia `GOOGLE_APPLICATION_CREDENTIALS` → biblioteka znajduje go przez Application Default Credentials (lokalnie zamiast tego używa logowania z `gcloud`, więc ten sam kod działa w obu miejscach) → podpisuje prośbę kluczem prywatnym i dostaje token dostępu ważny ok. 1 h → BigQuery sprawdza role konta w IAM (brak roli = 403).
+
+**Do zrobienia później — logowanie bez klucza (Workload Identity Federation):**
+- Problem: klucz JSON jest ważny bezterminowo; wyciek = dostęp do projektu do czasu ręcznego usunięcia klucza.
+- Rozwiązanie: GitHub przy każdym uruchomieniu wystawia jednorazowy, podpisany token tożsamości (OIDC) dla konkretnego repozytorium; Google skonfigurowany, by mu ufać, wymienia go na krótkotrwały token. Żaden klucz nie jest przechowywany.
+- Po wdrożeniu: usunąć sekret `GCP_SA_KEY` i klucz konta usługi w GCP; w `freshness.yml` zamienić `credentials_json` na `workload_identity_provider` + `service_account` w akcji `google-github-actions/auth`.
+- Wartość na rozmowę: znajomość obu podejść i wiedza, dlaczego to drugie jest bezpieczniejsze.
+
+## Następne kroki
+
+1. Zapisać `02_eda_data_quality.ipynb` z wynikami i wnioskami, commit zamykający A1 (razem z `CLAUDE.md`).
+   (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
+2. A2 – klienci: wiek, płeć, kraje, kanał pozyskania.
+3. `docs/kpi.md`, uzupełnienie README.
+4. Kolejne kroki EDA: A3 → A6, potem widoki w BigQuery i dashboard w Looker Studio.
