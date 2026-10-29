@@ -1,6 +1,6 @@
 """Wspólne ustawienia i funkcje do pracy z BigQuery. Importuj w każdym skrypcie:
 
-    from bq_utils import client, run_query, DATASET
+    from bq_utils import client, run_query, read_bq, DATASET
 """
 from google.cloud import bigquery
 
@@ -34,3 +34,18 @@ def run_query(sql: str, params: list | None = None, verbose: bool = True):
     )
     return job.to_dataframe()
 
+
+def read_bq(table: str, usecols: list, dtype: dict | None = None,
+            sample_pct: int | None = None, verbose: bool = True):
+    """Odpowiednik pd.read_csv(path, usecols=..., dtype=...) dla tabeli z BigQuery.
+
+    usecols    – które kolumny pobrać (płacimy tylko za wybrane kolumny!)
+    dtype      – słownik typów do zamiany, np. {"id": "Int32", "status": "category"}
+    sample_pct – opcjonalna próbka tabeli w procentach (TABLESAMPLE), np. 10
+    """
+    cols = ", ".join(f"`{c}`" for c in usecols)
+    sample = f" TABLESAMPLE SYSTEM ({sample_pct} PERCENT)" if sample_pct else ""
+    sql = f"SELECT {cols} FROM `{DATASET}.{table}`{sample}"
+
+    df = run_query(sql, verbose=verbose)
+    return df.astype(dtype) if dtype else df
