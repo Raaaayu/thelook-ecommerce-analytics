@@ -133,8 +133,8 @@ Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na ż
 | A1 ✅ | Jakość danych: braki, duplikaty, zakresy dat, świeżość | Czy możemy ufać danym? | `02_eda_data_quality.ipynb` |
 | A2 ✅ | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | `04_eda_customers.ipynb` |
 | A3 ✅ | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | `05_eda_products.ipynb` |
-| A4 | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | ← obecny krok |
-| A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | |
+| A4 ✅ | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | `06_eda_orders_time.ipynb` |
+| A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | ← obecny krok |
 | A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | |
 
 Każdy krok kończy się 2–3 wnioskami, które trafią na dashboard.
@@ -177,6 +177,28 @@ Ostrzeżenia przy wczytywaniu (`google-cloud-bigquery-storage` już dodany do `r
 Przychód w A3 (5 952 870) = A2 → definicja przychodu spójna między notatnikami.
 Technika z A3: `validate="many_to_one"` w `merge` (bezpiecznik przed zdublowaniem), Pareto (`cumsum` udziałów), dekompozycja AOV = pozycje/zamówienie × średnia cena pozycji, rozróżnienie efektu ceny i efektu struktury (`pivot_table` + udziały kategorii).
 Notatniki generowane z pełnym kodem i testowane na sztucznych danych przed oddaniem; użytkownik uruchamia i zapisuje, wyniki odczytywane z pliku `.ipynb`.
+**Poprawki w istniejącym notatniku: edytować komórki w miejscu (zachować `id` komórek)**, nie generować pliku od nowa — inaczej diff w Gicie pokazuje „Metadata changed” w każdej komórce.
+
+#### A4 – wnioski (dane na 2026-10-29, pełne miesiące 2019-01 – 2026-09)
+
+1. **Wzrost wykładniczy i przyspieszający:** przychód YTD 2026 **+72% r/r** (2023–2025 ~45% rocznie); wrzesień 2026 265 tys. vs 119 tys. rok wcześniej. AOV stały (~85–88) → wzrost = **liczba zamówień, nie wartość koszyka**. Nowe rejestracje stałe (~1 040/mies.) → wzrostu nie tłumaczy pozyskanie.
+2. **Wzrost napędza kumulująca się baza:** udział powracających w przychodzie 3% (2019) → 20% (2022) → 46% (2026). Mediana od rejestracji do 1. zakupu **394 dni** (średnia 591) → rośnie pula zarejestrowanych, którzy jeszcze nie kupili.
+   → **Największe aktywo to baza zarejestrowanych: aktywacja i powroty (retargeting, CRM)** — kandydat na rekomendację w memo. Ograniczenie: >1 rok do 1. zakupu to raczej cecha generatora.
+3. **Sezonowość słaba; „spadek lutego” to efekt kalendarza:** surowo luty −10,3%, na przychodzie dziennym −3,4%. Wzorzec ±7%: słabsze lato (lipiec −6,6%, sierpień −4,9%), lepsze październik (+4,4%) i grudzień (+3,1%). Brak efektu dnia tygodnia (po 14,3%).
+   Statusy stabilne w czasie (~15% Cancelled, ~10% Returned), także w ostatnich miesiącach → brak efektu cenzurowania; generator nadaje status niezależnie od wieku zamówienia.
+
+Techniki z A4: `groupby().cumcount()` jako `ROW_NUMBER() OVER (PARTITION BY ...)` (nowy vs powracający), porównanie YTD (te same miesiące każdego roku), trend = scentrowana średnia ruchoma 2×12, indeks sezonowy = wartość / trend (nie / średnia roku — przy wzroście zawyża koniec roku: grudzień wychodził 1,41), **korekta kalendarza (przychód na dzień, `PeriodIndex.days_in_month`)**. Przy wykładniczym wzroście MA lekko zawyża trend → indeksy przesunięte o ok. −1 pp.
+
+### Wykresy
+
+- `viz_style.py` — wspólny styl matplotlib: `apply_style()`, `legend_outside(ax)` (legenda poza wykresem, prawy górny róg), `COLORS`, `MONTHS_PL`. Import: `from viz_style import apply_style, legend_outside, COLORS, MONTHS_PL`. Po zmianie pliku: restart kernela.
+- Paleta dopasowana do szablonu dashboardu użytkownika (zielony akcent, grafitowa typografia, białe karty, pastelowy gradient w tle strony): `series_1` zielony `#1a9a50`, `series_2` grafit `#3a3f47`, tło `#ffffff`. Para sprawdzona: kontrast 3,6:1 / 10,6:1 na białym, OKLab ΔE 28,5 (≥ 25 przy każdym typie daltonizmu). Jaśniejszy zielony z szablonu (`#22b35e`) ma tylko 2,7:1 — za mało.
+- Preferencje użytkownika: legenda poza obszarem wykresu (prawy górny róg); **jeden kolor, gdy znaczenie niesie oś** (np. odchylenie +/− od trendu — bez legendy i bez drugiego koloru); etykiety tylko selektywnie (ostatni punkt, max/min); oś słupków od 0.
+- Gradient i zaokrąglone karty z szablonu → warstwa dashboardu (Looker Studio / Streamlit), nie matplotlib.
+
+### Praca z Gitem
+
+- Każdy krok na osobnej gałęzi (np. `eda-a4-orders-time`), na koniec Pull Request na GitHubie i merge do `main`.
 
 ### Część B – Dashboard na żywych danych
 
@@ -215,7 +237,8 @@ Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje kl
 
 ## Następne kroki
 
-1. A4 – zamówienia w czasie (`06_eda_orders_time.ipynb`): trendy miesięczne (na `orders.created_at`), sezonowość, statusy w czasie; czy sprzedaż rośnie mimo stałej liczby nowych users (~1 040/mies.) — rola klientów powracających.
+1. Zamknąć A4: PR `eda-a4-orders-time` → `main` na GitHubie.
+2. A5 – anulowania i zwroty (`07_eda_cancellations_returns.ipynb`, nowa gałąź): wg kategorii, marki, kraju, płci; utracony przychód; czy jakikolwiek wymiar różnicuje return rate (statusy wyglądają na losowe — sprawdzić).
    (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
-2. `docs/kpi.md`, uzupełnienie README.
-3. Kolejne kroki EDA: A4 → A6, potem widoki w BigQuery i dashboard w Looker Studio.
+3. `docs/kpi.md`, uzupełnienie README.
+4. Kolejne kroki EDA: A6, potem widoki w BigQuery i dashboard w Looker Studio.
