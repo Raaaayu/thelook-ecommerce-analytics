@@ -135,7 +135,9 @@ Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na ż
 | A3 ✅ | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | `05_eda_products.ipynb` |
 | A4 ✅ | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | `06_eda_orders_time.ipynb` |
 | A5 ✅ | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | `07_eda_cancellations_returns.ipynb` |
-| A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | ← obecny krok |
+| A6 ✅ | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | `08_eda_events_funnel.ipynb` |
+
+**Część A (EDA) zakończona** — następny etap: część B (widoki w BigQuery + dashboard).
 
 Każdy krok kończy się 2–3 wnioskami, które trafią na dashboard.
 
@@ -199,6 +201,15 @@ Techniki z A4: `groupby().cumcount()` jako `ROW_NUMBER() OVER (PARTITION BY ...)
 
 Techniki z A5: analiza na dwóch poziomach (zamówienie — wymiary klienta; pozycja — wymiary produktu), `rate_table()` z z-score i 95% CI, wykres przedziałów ufności (dot + error bar), **wielokrotne porównania i poprawka Bonferroniego** (`statistics.NormalDist().inv_cdf(1 - 0.05 / (2k))` — bez scipy; progi: 2 grupy 2,24, 10 → 2,81, 20 → 3,02, 26 → 3,10), zależność obserwacji na poziomie pozycji (zawyża z), korelacja Spearmana jako Pearson na rangach.
 
+#### A6 – wnioski (dane na 2026-10-29, zdarzenia do 2026-09-30: 662 088 sesji, 2,31 mln zdarzeń)
+
+1. **Lejek zdeterminowany przez logowanie:** 74,8% sesji anonimowych, **0% zakupów** (4 stałe ścieżki: `department > product`, `product`, `product > cart > cancel`, `department > product > cart`); zalogowane kupują w 99,8%. Konwersja sesji 25,2% (realnie 2–3%). Lejek ogółem: produkt 100% → koszyk 62,4% → zakup 40,3% koszyków; połowa anonimowych koszyków kończy się `cancel`.
+2. **Źródło sesji i przeglądarka nie różnicują konwersji** (24,9–25,6%).
+3. **Atrybucja niemożliwa bez wspólnego słownika kanałów:** `users.traffic_source` = Search, Organic, Facebook, Email, Display; `events.traffic_source` = Adwords, Email, Facebook, Organic, YouTube (wspólne 3). Źródło sesji z zakupem niezależne od kanału pozyskania (Email → Email 44,7% vs 45,1% losowo). Anonimowe sesje stałe ~5,3 tys./mies., zalogowane rosną wykładniczo → konwersja sesji 41% → 57% w ostatnim roku (efekt wzrostu bazy z A4).
+   → Wartość na rozmowę: rozróżnienie first / last touch i problem niespójnej taksonomii kanałów.
+
+Techniki z A6: agregacja w BigQuery zamiast wczytywania 2,4 mln wierszy (wyniki do pandas: dziesiątki wierszy), `LOGICAL_OR` (flagi na poziomie sesji), `COUNTIF`, `GROUP BY ROLLUP` (wiersz sumy), `STRING_AGG(... ORDER BY sequence_number)` (ścieżki), `HAVING`, parametr `@cutoff` jako `TIMESTAMP`, test niezależności „obserwowane vs oczekiwane przy losowości”. Koszt zapytań: 140–180 MB każde.
+
 ### Wykresy
 
 - `viz_style.py` — wspólny styl matplotlib: `apply_style()`, `legend_outside(ax)` (legenda poza wykresem, prawy górny róg), `COLORS`, `MONTHS_PL`. Import: `from viz_style import apply_style, legend_outside, COLORS, MONTHS_PL`. Po zmianie pliku: restart kernela.
@@ -247,8 +258,9 @@ Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje kl
 
 ## Następne kroki
 
-1. Zamknąć A5: PR `eda-a5-cancellations-returns` → `main` (squash merge), usunąć gałąź lokalnie (`git branch -D`).
-2. A6 – zachowanie na stronie (`08_eda_events_funnel.ipynb`, nowa gałąź): sesje, typy zdarzeń, lejek do zakupu; lejek po `session_id` (46,5% zdarzeń bez `user_id`); `events` ma 2,4 mln wierszy — agregacje w SQL (BigQuery), nie pełne wczytanie do pandas.
+1. Zamknąć A6: PR `eda-a6-events-funnel` → `main` (squash merge), `git branch -D`, `git fetch --prune`.
+2. Część B: widoki w BigQuery (zbiór we własnym projekcie, lokalizacja US) na kluczowe KPI z EDA + dashboard w Looker Studio w stylu szablonu użytkownika (zielony akcent, białe karty) z kafelkiem „Dane na: …”.
+   Kandydaci do memo z EDA: (a) budżet pod zysk brutto / POAS, nie przychód (A3); (b) aktywacja bazy zarejestrowanych — retargeting / CRM (A4); (c) ROAS po stratach: × 0,69 (A5); (d) anulowania > zwroty — zapobiegać przed wysyłką (A5); (e) wspólny słownik kanałów przed atrybucją (A6).
    (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
 3. `docs/kpi.md`, uzupełnienie README.
-4. Po EDA: widoki w BigQuery i dashboard w Looker Studio.
+4. Potem: Streamlit (opcjonalnie), memo dla stakeholdera, agent AI (etap 6 z mapy projektu).
