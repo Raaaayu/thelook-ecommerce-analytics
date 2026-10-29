@@ -134,8 +134,8 @@ Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na ż
 | A2 ✅ | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | `04_eda_customers.ipynb` |
 | A3 ✅ | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | `05_eda_products.ipynb` |
 | A4 ✅ | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | `06_eda_orders_time.ipynb` |
-| A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | ← obecny krok |
-| A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | |
+| A5 ✅ | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | `07_eda_cancellations_returns.ipynb` |
+| A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | ← obecny krok |
 
 Każdy krok kończy się 2–3 wnioskami, które trafią na dashboard.
 
@@ -189,6 +189,16 @@ Notatniki generowane z pełnym kodem i testowane na sztucznych danych przed odda
 
 Techniki z A4: `groupby().cumcount()` jako `ROW_NUMBER() OVER (PARTITION BY ...)` (nowy vs powracający), porównanie YTD (te same miesiące każdego roku), trend = scentrowana średnia ruchoma 2×12, indeks sezonowy = wartość / trend (nie / średnia roku — przy wzroście zawyża koniec roku: grudzień wychodził 1,41), **korekta kalendarza (przychód na dzień, `PeriodIndex.days_in_month`)**. Przy wykładniczym wzroście MA lekko zawyża trend → indeksy przesunięte o ok. −1 pp.
 
+#### A5 – wnioski (dane na 2026-10-29, wszystkie zamówienia)
+
+1. **Tracimy prawie co czwartą złotówkę:** Cancelled + Returned = 2,67 mln (24,8% wartości zamówień). Z każdych 100 zł rozstrzygniętych zamówień (bez Processing) sklep zatrzymuje **69 zł**.
+   → **ROAS na złożonych zamówieniach zawyża realny zwrot o ~45% (1 / 0,69): „ROAS 4,0” ≈ 2,8** — kandydat na rekomendację w memo (oceniać kampanie na przychodzie po stratach).
+2. **Anulowania kosztują więcej niż zwroty:** 1,63 mln (61% strat) vs 1,04 mln. Anulowanie jest przed wysyłką → łatwiej zapobiec (płatność, dostawa, dostępność) — kandydat do memo.
+3. **Żaden wymiar nie różnicuje strat (szum):** return rate kategorie 9,0–11,3%, kraje 9,6–10,7%, płeć / kanał / dział ~10%. Po Bonferronim nie przechodzi nic (max |z| 2,76 — anulowania Suits — przy progu 3,10 dla 26 kategorii). Każda kategoria traci ~30–31% zysku brutto; ranking po stratach bez zmian (korelacja 0,999) → wnioski z A3 o marży aktualne.
+   Status pozycji = status zamówienia w 100% (reguła z A1 potwierdzona). Ograniczenie: status w danych syntetycznych wygląda na losowy.
+
+Techniki z A5: analiza na dwóch poziomach (zamówienie — wymiary klienta; pozycja — wymiary produktu), `rate_table()` z z-score i 95% CI, wykres przedziałów ufności (dot + error bar), **wielokrotne porównania i poprawka Bonferroniego** (`statistics.NormalDist().inv_cdf(1 - 0.05 / (2k))` — bez scipy; progi: 2 grupy 2,24, 10 → 2,81, 20 → 3,02, 26 → 3,10), zależność obserwacji na poziomie pozycji (zawyża z), korelacja Spearmana jako Pearson na rangach.
+
 ### Wykresy
 
 - `viz_style.py` — wspólny styl matplotlib: `apply_style()`, `legend_outside(ax)` (legenda poza wykresem, prawy górny róg), `COLORS`, `MONTHS_PL`. Import: `from viz_style import apply_style, legend_outside, COLORS, MONTHS_PL`. Po zmianie pliku: restart kernela.
@@ -237,8 +247,8 @@ Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje kl
 
 ## Następne kroki
 
-1. Zamknąć A4: PR `eda-a4-orders-time` → `main` na GitHubie.
-2. A5 – anulowania i zwroty (`07_eda_cancellations_returns.ipynb`, nowa gałąź): wg kategorii, marki, kraju, płci; utracony przychód; czy jakikolwiek wymiar różnicuje return rate (statusy wyglądają na losowe — sprawdzić).
+1. Zamknąć A5: PR `eda-a5-cancellations-returns` → `main` (squash merge), usunąć gałąź lokalnie (`git branch -D`).
+2. A6 – zachowanie na stronie (`08_eda_events_funnel.ipynb`, nowa gałąź): sesje, typy zdarzeń, lejek do zakupu; lejek po `session_id` (46,5% zdarzeń bez `user_id`); `events` ma 2,4 mln wierszy — agregacje w SQL (BigQuery), nie pełne wczytanie do pandas.
    (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
 3. `docs/kpi.md`, uzupełnienie README.
-4. Kolejne kroki EDA: A6, potem widoki w BigQuery i dashboard w Looker Studio.
+4. Po EDA: widoki w BigQuery i dashboard w Looker Studio.
