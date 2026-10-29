@@ -132,8 +132,8 @@ Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na ż
 |---|---|---|---|
 | A1 ✅ | Jakość danych: braki, duplikaty, zakresy dat, świeżość | Czy możemy ufać danym? | `02_eda_data_quality.ipynb` |
 | A2 ✅ | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | `04_eda_customers.ipynb` |
-| A3 | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | ← obecny krok |
-| A4 | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | |
+| A3 ✅ | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | `05_eda_products.ipynb` |
+| A4 | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | ← obecny krok |
 | A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | |
 | A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | |
 
@@ -162,7 +162,21 @@ Pułapka pandas: `(newest - now).dt.days` zaokrągla w dół, więc różnica �
 3. **Baza klientów nie rośnie:** stałe ~1 040 nowych users miesięcznie od 2019 r. Koncentracja rynku: Chiny 33,7%, USA 22,8%, Brazylia 14,6% (razem 71%).
 
 Technika z A2: funkcja `segment_kpi(df, by)` (KPI dla dowolnego wymiaru), kontrola poprawności złączenia (liczba wierszy i suma przychodu przed/po), miara rozrzutu max/min revenue per user do porównania wymiarów.
-Ostrzeżenia przy wczytywaniu: brak quota project (`gcloud auth application-default set-quota-project thelook-analytics-512312`) i brak `google-cloud-bigquery-storage` (wolniejsze pobieranie) — niegroźne.
+Ostrzeżenia przy wczytywaniu (`google-cloud-bigquery-storage` już dodany do `requirements.txt`): brak quota project (`gcloud auth application-default set-quota-project thelook-analytics-512312`) i brak `google-cloud-bigquery-storage` (wolniejsze pobieranie) — niegroźne.
+
+#### A3 – wnioski (dane na 2026-10-29 08:39 UTC)
+
+1. **Hipoteza z A2 potwierdzona: różnica AOV M vs F to asortyment, nie zachowanie.** Pozycji w zamówieniu tyle samo (F 1,45 vs M 1,46), różni się średnia cena pozycji (F 55,99 vs M 63,27).
+   Kobiety kupują w 100% z działu Women, mężczyźni w 100% z Men → **płeć i dział są nierozdzielne (confounding)**.
+   Źródło głównie **efekt struktury** (mix): u M garnitury (Suits & Sport Coats, śr. 127) to 11,4% przychodu, kurtki i jeansy po ~14% (u F ~9%). Efekt ceny w tych samych kategoriach niejednoznaczny (Shorts M +23%, Swim M −25%).
+2. **Marża różni się systematycznie między kategoriami** — każda ma własny przedział ~10 pp. (np. Blazers & Jackets 57–67%, Socks 35–45%). Wysoka: Blazers & Jackets 62%, Accessories / Skirts / Suits & Sport Coats / Socks & Hosiery ~60%; niska: Clothing Sets 38%, Suits (Women) / Socks ~40%, Leggings 40%.
+   **Ranking po przychodzie ≠ ranking po zysku** (Jeans: 2. w przychodzie, marża 46,5%; Suits & Sport Coats: 4., marża 59,8%) → **budżet reklamowy optymalizować pod zysk brutto (ROAS na marży / POAS), nie przychód** — kandydat na rekomendację w memo.
+3. **Sprzedaż rozproszona:** 13 z 26 kategorii = 80% przychodu (lider Outerwear & Coats 12,2%, Jeans 11,7%); 2 756 marek, największa (Calvin Klein) 1,9%, top 10 = 13,4% (długi ogon reklamodawców).
+   Brak rabatów (`sale_price` = `retail_price` w 100%); artefakt: produkty po 0,02.
+
+Przychód w A3 (5 952 870) = A2 → definicja przychodu spójna między notatnikami.
+Technika z A3: `validate="many_to_one"` w `merge` (bezpiecznik przed zdublowaniem), Pareto (`cumsum` udziałów), dekompozycja AOV = pozycje/zamówienie × średnia cena pozycji, rozróżnienie efektu ceny i efektu struktury (`pivot_table` + udziały kategorii).
+Notatniki generowane z pełnym kodem i testowane na sztucznych danych przed oddaniem; użytkownik uruchamia i zapisuje, wyniki odczytywane z pliku `.ipynb`.
 
 ### Część B – Dashboard na żywych danych
 
@@ -201,7 +215,7 @@ Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje kl
 
 ## Następne kroki
 
-1. A3 – produkty (`05_eda_products.ipynb`): kategorie, marki, ceny, marża; sprawdzić hipotezę z A2 — czy różnica AOV M vs F znika po uwzględnieniu cen/kategorii produktów; czy koszt to stały % ceny.
+1. A4 – zamówienia w czasie (`06_eda_orders_time.ipynb`): trendy miesięczne (na `orders.created_at`), sezonowość, statusy w czasie; czy sprzedaż rośnie mimo stałej liczby nowych users (~1 040/mies.) — rola klientów powracających.
    (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
 2. `docs/kpi.md`, uzupełnienie README.
 3. Kolejne kroki EDA: A4 → A6, potem widoki w BigQuery i dashboard w Looker Studio.
