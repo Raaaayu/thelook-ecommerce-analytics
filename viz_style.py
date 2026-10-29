@@ -1,23 +1,23 @@
 """Wspólny styl wykresów matplotlib – jedna paleta i wygląd we wszystkich notatnikach. Importuj:
 
     from viz_style import apply_style, legend_outside, COLORS, MONTHS_PL
+
+Paleta dopasowana do szablonu dashboardu: zielony akcent, grafitowa typografia, białe tło.
 """
 import matplotlib as mpl
 
 COLORS = {
-    # categorical slots in fixed order – series 1 is always blue, series 2 always orange
-    "series_1": "#2a78d6",
-    "series_2": "#eb6834",
-    # diverging pair (polarity: above / below a reference value)
-    "above": "#2a78d6",
-    "below": "#e34948",
+    # categorical slots in fixed order – series 1 is always the green accent, series 2 always graphite
+    # (pair checked: contrast vs white 3.6:1 / 10.6:1, OKLab dE 28.5 normal, >= 25 under all CVD types)
+    "series_1": "#1a9a50",
+    "series_2": "#3a3f47",
     # chart chrome and ink
-    "surface": "#fcfcfb",
-    "text_primary": "#0b0b0b",
-    "text_secondary": "#52514e",
-    "muted": "#898781",
-    "grid": "#e1e0d9",
-    "axis": "#c3c2b7",
+    "surface": "#ffffff",
+    "text_primary": "#2b2f36",
+    "text_secondary": "#5f6570",
+    "muted": "#9aa0a8",
+    "grid": "#eceef1",
+    "axis": "#d5d8dd",
 }
 
 MONTHS_PL = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"]
@@ -29,7 +29,7 @@ def legend_outside(ax, **kwargs):
 
 
 def apply_style():
-    """Ustawia domyślny wygląd wykresów: jasne tło, cienkie linie, recesywna siatka, tytuł z lewej."""
+    """Ustawia domyślny wygląd wykresów: białe tło, cienkie linie, recesywna siatka, tytuł z lewej."""
     mpl.rcParams.update({
         "figure.figsize": (10, 4),
         "figure.dpi": 110,
@@ -40,11 +40,11 @@ def apply_style():
         "font.sans-serif": ["Segoe UI", "DejaVu Sans"],
         "font.size": 10,
         "text.color": COLORS["text_primary"],
-        "axes.titlesize": 12,
-        "axes.titleweight": "bold",
+        "axes.titlesize": 13,
+        "axes.titleweight": "semibold",
         "axes.titlelocation": "left",
         "axes.titlecolor": COLORS["text_primary"],
-        "axes.titlepad": 12,
+        "axes.titlepad": 14,
         "axes.labelcolor": COLORS["text_secondary"],
         "axes.edgecolor": COLORS["axis"],
         "axes.spines.top": False,
