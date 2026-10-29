@@ -3,3 +3,4 @@ db-dtypes
 pandas
 pyarrow
 ipykernel
+google-cloud-bigquery-storage

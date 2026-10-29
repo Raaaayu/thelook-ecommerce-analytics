@@ -131,8 +131,8 @@ Snapshot odłożony: codzienne zmiany w danych to zaleta dla dashboardu „na ż
 | Krok | Zakres | Pytanie biznesowe | Plik |
 |---|---|---|---|
 | A1 ✅ | Jakość danych: braki, duplikaty, zakresy dat, świeżość | Czy możemy ufać danym? | `02_eda_data_quality.ipynb` |
-| A2 | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | ← obecny krok |
-| A3 | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | |
+| A2 ✅ | Klienci: wiek, płeć, kraje, kanał pozyskania | Kim są klienci? | `04_eda_customers.ipynb` |
+| A3 | Produkty: kategorie, marki, ceny, marża (`cost` vs `retail_price`) | Na czym zarabiamy? | ← obecny krok |
 | A4 | Zamówienia w czasie: trendy miesięczne, sezonowość, statusy | Czy biznes rośnie? | |
 | A5 | Anulowania i zwroty wg kategorii, marki, kraju | Gdzie tracimy pieniądze? | |
 | A6 | Zachowanie na stronie: sesje, typy zdarzeń, ścieżka do zakupu (`events`) | Gdzie odpadają kupujący? | |
@@ -151,6 +151,18 @@ Analizy EDA są teraz w notatnikach `.ipynb` (zamiast skryptów `# %%`); dane wc
    Historia się zmienia: 124 452 zamówienia (2026-10-29) vs 125 470 (2026-10-21), mimo braku filtra.
 
 Pułapka pandas: `(newest - now).dt.days` zaokrągla w dół, więc różnica −8 h daje `-1`. Porównanie z `NaT` zawsze daje False → odsetki liczymy wśród wierszy z niepustą datą.
+
+#### A2 – wnioski (dane na 2026-10-29 08:21 UTC)
+
+1. **Płeć to pierwszy wymiar z realną różnicą wartości:** revenue per user M 63,18 vs F 55,85 (+13%), po ~50 tys. users w grupie (nie szum).
+   Buyer rate równy (~52,8%) → różnica w całości z AOV (92,08 vs 81,27). Pokrywa się z różnicą średniej ceny produktów Men 63,2 vs Women 55,9 (+13%, A1)
+   → **hipoteza: przyczyną jest asortyment (ceny), nie zachowanie klientów — do sprawdzenia w A3.**
+2. **Wiek, kraj i kanał nie różnicują wartości klienta.** Rozrzut revenue/user: kanał 3,5%, wiek 6,7%, kraj (top 10) 12,3% — ale duże kraje (Chiny, USA, Brazylia) mają ~59,5, a wyższe Japonia (64,69) i Niemcy (61,97) to efekt małej próby (2–4 tys. users).
+   Skład wieku i płci jest identyczny we wszystkich kanałach (kanał przypisany losowo). Wiek rozłożony równomiernie 12–70 (syntetyczne).
+3. **Baza klientów nie rośnie:** stałe ~1 040 nowych users miesięcznie od 2019 r. Koncentracja rynku: Chiny 33,7%, USA 22,8%, Brazylia 14,6% (razem 71%).
+
+Technika z A2: funkcja `segment_kpi(df, by)` (KPI dla dowolnego wymiaru), kontrola poprawności złączenia (liczba wierszy i suma przychodu przed/po), miara rozrzutu max/min revenue per user do porównania wymiarów.
+Ostrzeżenia przy wczytywaniu: brak quota project (`gcloud auth application-default set-quota-project thelook-analytics-512312`) i brak `google-cloud-bigquery-storage` (wolniejsze pobieranie) — niegroźne.
 
 ### Część B – Dashboard na żywych danych
 
@@ -189,8 +201,7 @@ Jak runner loguje się do BigQuery (dla przypomnienia): akcja `auth` zapisuje kl
 
 ## Następne kroki
 
-1. Zapisać `02_eda_data_quality.ipynb` z wynikami i wnioskami, commit zamykający A1 (razem z `CLAUDE.md`).
+1. A3 – produkty (`05_eda_products.ipynb`): kategorie, marki, ceny, marża; sprawdzić hipotezę z A2 — czy różnica AOV M vs F znika po uwzględnieniu cen/kategorii produktów; czy koszt to stały % ceny.
    (Lekcje z `01_channel_value`: `COALESCE(..., 0)` dla użytkowników bez zakupów; warunki filtrujące tabelę dołączaną w `ON`, nie w `WHERE`; przedziały ufności.)
-2. A2 – klienci: wiek, płeć, kraje, kanał pozyskania.
-3. `docs/kpi.md`, uzupełnienie README.
-4. Kolejne kroki EDA: A3 → A6, potem widoki w BigQuery i dashboard w Looker Studio.
+2. `docs/kpi.md`, uzupełnienie README.
+3. Kolejne kroki EDA: A4 → A6, potem widoki w BigQuery i dashboard w Looker Studio.
