@@ -4,7 +4,7 @@
 """
 from google.cloud import bigquery
 
-PROJECT_ID = "thelook-analytics-512312"                  # Twój projekt GCP – to on "płaci" za zapytania
+PROJECT_ID = "thelook-analytics-512312"                  # projekt GCP, na który idą zapytania (i limit kosztów)
 DATASET = "bigquery-public-data.thelook_ecommerce"       # źródło danych
 MAX_BYTES = 1_000_000_000                                # bezpiecznik: zapytanie > 1 GB zostanie odrzucone
 
