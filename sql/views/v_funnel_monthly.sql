@@ -1,9 +1,9 @@
--- Purchase funnel by month, session traffic source and login state (session level, A6).
+-- Lejek zakupowy wg miesiąca, źródła sesji i zalogowania (poziom sesji, A6).
 WITH sessions AS (
   SELECT
     session_id,
     MIN(created_at)                     AS started_at,
-    ANY_VALUE(traffic_source)           AS traffic_source,   -- one source per session (checked in A6)
+    ANY_VALUE(traffic_source)           AS traffic_source,   -- jedno źródło na sesję (sprawdzone w A6)
     LOGICAL_OR(user_id IS NOT NULL)     AS logged_in,
     LOGICAL_OR(event_type = 'product')  AS saw_product,
     LOGICAL_OR(event_type = 'cart')     AS added_to_cart,

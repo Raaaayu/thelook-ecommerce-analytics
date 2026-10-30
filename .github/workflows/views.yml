@@ -3,12 +3,12 @@ name: Deploy BigQuery views
 on:
   push:
     branches: [main]
-    paths:                    # only when view definitions or the deploy script change
+    paths:                    # tylko po zmianie definicji widoków lub skryptu
       - "sql/views/**"
       - "deploy_views.py"
   schedule:
-    - cron: "30 4 * * 1"      # every Monday 04:30 UTC – renews views before the 60-day sandbox expiry
-  workflow_dispatch:          # "Run workflow" button for a manual run
+    - cron: "30 4 * * 1"      # poniedziałki 04:30 UTC – odnowienie widoków przed wygaśnięciem (sandbox: 60 dni)
+  workflow_dispatch:          # ręczne uruchomienie ("Run workflow")
 
 jobs:
   deploy-views:

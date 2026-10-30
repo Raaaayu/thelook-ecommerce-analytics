@@ -1,5 +1,5 @@
--- Product performance by month, department and category.
--- Status and date from orders (A1); gross profit = sale_price - product cost (A3).
+-- Sprzedaż produktów wg miesiąca, działu i kategorii.
+-- Status i data z orders (A1); zysk brutto = sale_price - koszt produktu (A3).
 SELECT
   DATE_TRUNC(DATE(o.created_at), MONTH)                                         AS month,
   p.department,

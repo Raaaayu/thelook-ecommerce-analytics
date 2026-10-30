@@ -1,5 +1,5 @@
--- Customer value by segment (A2): one row per gender x age group x country x acquisition channel.
--- Users without purchases are kept (LEFT JOIN + COALESCE); revenue = Complete + Shipped.
+-- Wartość klienta wg segmentu (A2): wiersz = płeć x grupa wieku x kraj x kanał pozyskania.
+-- Użytkownicy bez zakupów zostają (LEFT JOIN + COALESCE); przychód = Complete + Shipped.
 WITH user_revenue AS (
   SELECT
     o.user_id,

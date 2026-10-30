@@ -18,7 +18,7 @@ from bq_utils import client, PROJECT_ID
 DATASET_ID = f"{PROJECT_ID}.marts"
 VIEWS_DIR = Path(__file__).parent / "sql" / "views"
 
-# Same location as the public dataset (US) – views must live where their source tables are
+# Ta sama lokalizacja co zbiór publiczny (US) – widok musi być tam, gdzie tabele źródłowe
 dataset = bigquery.Dataset(DATASET_ID)
 dataset.location = "US"
 dataset.description = "Widoki KPI dla dashboardu TheLook (liczone na żywo z bigquery-public-data.thelook_ecommerce)"
@@ -29,7 +29,7 @@ for path in sorted(VIEWS_DIR.glob("*.sql")):
     view_id = f"{DATASET_ID}.{path.stem}"
     view_sql = path.read_text(encoding="utf-8")
 
-    # Dry run first: validates the SQL and estimates the cost of one read (free)
+    # Najpierw dry run: sprawdza SQL i szacuje koszt jednego odczytu (darmowy)
     dry = client.query(view_sql, job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False))
 
     client.query(f"CREATE OR REPLACE VIEW `{view_id}` AS\n{view_sql}").result()
