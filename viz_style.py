@@ -7,11 +7,11 @@ Paleta dopasowana do szablonu dashboardu: zielony akcent, grafitowa typografia, 
 import matplotlib as mpl
 
 COLORS = {
-    # categorical slots in fixed order – series 1 is always the green accent, series 2 always graphite
-    # (pair checked: contrast vs white 3.6:1 / 10.6:1, OKLab dE 28.5 normal, >= 25 under all CVD types)
+    # kolejność stała: seria 1 zawsze zielona, seria 2 zawsze grafitowa
+    # (sprawdzone: kontrast na białym 3,6:1 i 10,6:1, para rozróżnialna także przy daltonizmie)
     "series_1": "#1a9a50",
     "series_2": "#3a3f47",
-    # chart chrome and ink
+    # tło, tekst, osie i siatka
     "surface": "#ffffff",
     "text_primary": "#2b2f36",
     "text_secondary": "#5f6570",

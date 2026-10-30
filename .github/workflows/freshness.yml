@@ -1,4 +1,3 @@
-# Ten plik umieść w repozytorium jako: .github/workflows/freshness.yml
 name: Daily data freshness log
 
 on:
@@ -18,7 +17,7 @@ jobs:
       - name: Zainstaluj Pythona
         uses: actions/setup-python@v6
         with:
-          python-version: "3.15"   # ta sama wersja co lokalnie (sprawdź: python --version w aktywnym .venv)
+          python-version: "3.15"   # ta sama wersja co lokalnie
 
       - name: Zainstaluj biblioteki
         run: pip install -r requirements.txt

@@ -1,6 +1,6 @@
--- Monthly business KPIs (one row per month).
--- Full months only; dates from orders.created_at (order_items.created_at is unreliable, see A1);
--- revenue = Complete + Shipped; returning = customer's 2nd+ order (ranked over ALL orders).
+-- KPI miesięczne (jeden wiersz na miesiąc).
+-- Tylko pełne miesiące; data z orders.created_at (order_items.created_at jest niewiarygodne, zob. A1);
+-- przychód = Complete + Shipped; powracający = 2. i kolejne zamówienie klienta (numeracja po WSZYSTKICH zamówieniach).
 WITH order_value AS (
   SELECT order_id, SUM(sale_price) AS order_value
   FROM `bigquery-public-data.thelook_ecommerce.order_items`
@@ -27,8 +27,8 @@ SELECT
   SUM(IF(is_revenue AND order_rank = 1, order_value, 0))               AS revenue_new,
   SUM(IF(is_revenue AND order_rank > 1, order_value, 0))               AS revenue_returning,
   SAFE_DIVIDE(SUM(IF(is_revenue, order_value, 0)), COUNTIF(is_revenue)) AS aov,
-  COUNTIF(status = 'Cancelled')                                        AS cancelled_orders,  -- counts let the dashboard
-  COUNTIF(status = 'Returned')                                         AS returned_orders,   -- compute rates for any date range
+  COUNTIF(status = 'Cancelled')                                        AS cancelled_orders,  -- liczniki, żeby dashboard
+  COUNTIF(status = 'Returned')                                         AS returned_orders,   -- liczył wskaźniki dla dowolnego okresu
   SAFE_DIVIDE(COUNTIF(status = 'Cancelled'), COUNT(*))                 AS cancel_rate,
   SAFE_DIVIDE(COUNTIF(status = 'Returned'), COUNT(*))                  AS return_rate,
   SUM(IF(status IN ('Cancelled', 'Returned'), order_value, 0))         AS lost_value

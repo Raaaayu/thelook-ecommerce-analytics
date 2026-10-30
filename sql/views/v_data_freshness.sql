@@ -1,5 +1,5 @@
--- "Data as of" tile: when the dashboard read the data and the newest record in each source table.
--- Events have future-dated records (A1), so they are capped at the current time.
+-- Kafelek „Dane na”: moment odczytu i najnowszy rekord w każdej tabeli źródłowej.
+-- Events mają rekordy z datą w przyszłości (A1), więc ograniczamy je do bieżącej chwili.
 SELECT
   CURRENT_TIMESTAMP()                                                             AS checked_at,
   (SELECT MAX(created_at) FROM `bigquery-public-data.thelook_ecommerce.orders`)   AS orders_max_created_at,
